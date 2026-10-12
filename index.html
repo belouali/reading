@@ -132,11 +132,6 @@ tr.detail .why b { color: var(--text-2); font-weight: 600; }
 details.tk { margin-top: 8px; }
 details.tk summary { cursor: pointer; font-size: 12.5px; color: var(--text-2); }
 details.tk p { margin: 6px 0 0; font-size: 13px; color: var(--text-2); line-height: 1.5; }
-.fives { display: grid; gap: 8px; }
-.five { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
-.five summary { cursor: pointer; font-weight: 600; font-size: 14px; }
-.five summary span { font-weight: 400; color: var(--text-2); font-size: 12.5px; margin-left: 6px; }
-.five p { margin: 8px 0 2px; font-size: 13px; color: var(--text-2); line-height: 1.5; }
 #tip {
   position: fixed; pointer-events: none; z-index: 10; opacity: 0; transition: opacity .08s;
   background: var(--text); color: var(--surface); padding: 6px 10px; border-radius: 6px; font-size: 12.5px; max-width: 240px;
@@ -190,11 +185,6 @@ details.tk p { margin: 6px 0 0; font-size: 13px; color: var(--text-2); line-heig
   <section class="card" style="margin-bottom:14px">
     <h2>Reading now</h2>
     <div class="now" id="now"></div>
-  </section>
-
-  <section class="card" style="margin-bottom:14px">
-    <h2>Five-star reads &mdash; what stuck</h2>
-    <div class="fives" id="fives"></div>
   </section>
 
   <section class="card">
@@ -351,19 +341,6 @@ details.tk p { margin: 6px 0 0; font-size: 13px; color: var(--text-2); line-heig
     }
     now.appendChild(d);
   });
-
-  /* ---------- five-star reads ---------- */
-  var fives = $("fives");
-  core.filter(function (b) { return b.status === "Completed" && b.rating === 5 && b.takeaway; })
-    .sort(function (a, b) { return a.title.localeCompare(b.title); })
-    .forEach(function (b) {
-      var d = document.createElement("details"); d.className = "five";
-      d.innerHTML = "<summary></summary><p></p>";
-      d.firstChild.textContent = b.title;
-      var sp = document.createElement("span"); sp.textContent = b.author; d.firstChild.appendChild(sp);
-      d.lastChild.textContent = b.takeaway;
-      fives.appendChild(d);
-    });
 
   /* ---------- library table ---------- */
   var state = { status: "all", cat: "", fmt: "", q: "", feeds: false, sort: "title", dir: 1 };
