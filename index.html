@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reading Dashboard</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f4f3f0;
+  --surface: #fcfcfb;
+  --line: #e4e2dc;
+  --grid: #ecebe6;
+  --text: #0b0b0b;
+  --text-2: #52514e;
+  --text-3: #7a7974;
+  --done: #2a78d6;      /* categorical slot 1 */
+  --doing: #eb6834;     /* categorical slot 2 */
+  --todo: #cfcdc6;      /* de-emphasis gray */
+  --returned: #7a7974;
+  --chip-bg: #f0efec;
+  --focus: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #121211; --surface: #1a1a19; --line: #2e2e2c; --grid: #262624;
+    --text: #ffffff; --text-2: #c3c2b7; --text-3: #8f8e86;
+    --done: #3987e5; --doing: #d95926; --todo: #44443f; --returned: #8f8e86;
+    --chip-bg: #262624; --focus: #3987e5;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #121211; --surface: #1a1a19; --line: #2e2e2c; --grid: #262624;
+  --text: #ffffff; --text-2: #c3c2b7; --text-3: #8f8e86;
+  --done: #3987e5; --doing: #d95926; --todo: #44443f; --returned: #8f8e86;
+  --chip-bg: #262624; --focus: #3987e5;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--page); color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 28px 16px 64px; }
+header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+h1 { font-size: 22px; margin: 0 0 2px; letter-spacing: -0.01em; }
+.sub { color: var(--text-2); font-size: 13px; }
+button, select, input { font: inherit; color: inherit; }
+.btn {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 12px; cursor: pointer; font-size: 13px;
+}
+.btn:focus-visible, .chip:focus-visible, select:focus-visible, input:focus-visible, th button:focus-visible, .seg:focus-visible, .col:focus-visible {
+  outline: 2px solid var(--focus); outline-offset: 2px;
+}
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+.card h2 { font-size: 13px; font-weight: 600; margin: 0 0 14px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.grid { display: grid; gap: 14px; }
+.kpis { grid-template-columns: 1.6fr repeat(3, 1fr); margin-bottom: 14px; }
+.two { grid-template-columns: 1fr 1fr; margin-bottom: 14px; }
+.hero { font-size: 56px; line-height: 1; font-weight: 650; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.hero small { font-size: 18px; font-weight: 500; color: var(--text-2); letter-spacing: 0; }
+.tile-label { color: var(--text-2); font-size: 13px; margin-top: 6px; }
+.tile-num { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: baseline; }
+.sw.ring { background: transparent; border: 2px solid var(--returned); }
+
+/* stacked status bar */
+.stack { display: flex; gap: 2px; height: 28px; margin: 4px 0 12px; }
+.seg { border-radius: 4px; min-width: 3px; cursor: default; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-2); }
+.legend b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* breakdown rows */
+.brow { display: grid; grid-template-columns: 120px 1fr 64px; align-items: center; gap: 12px; margin: 10px 0; font-size: 14px; }
+.btrack { display: flex; gap: 2px; height: 14px; background: transparent; }
+.btrack .seg { height: 14px; }
+.btrack .rest { flex: 1; background: var(--todo); border-radius: 4px; min-width: 3px; }
+.brow .n { text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums; font-size: 13px; }
+
+/* rating columns */
+.cols { display: flex; align-items: flex-end; gap: 10px; height: 150px; border-bottom: 1px solid var(--line); padding: 0 4px; }
+.colwrap { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+.col { width: 100%; max-width: 54px; background: var(--done); border-radius: 4px 4px 0 0; min-height: 2px; }
+.colval { font-size: 13px; font-variant-numeric: tabular-nums; margin-bottom: 4px; color: var(--text-2); }
+.collab { display: flex; gap: 10px; padding: 6px 4px 0; }
+.collab span { flex: 1; text-align: center; font-size: 12px; color: var(--text-3); }
+
+/* reading now */
+.now { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.book { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; border-left: 3px solid var(--doing); }
+.book .t { font-weight: 600; font-size: 14px; line-height: 1.3; }
+.book .a { color: var(--text-2); font-size: 12.5px; }
+.book .m { color: var(--text-3); font-size: 12px; margin-top: 4px; }
+
+/* table */
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.chip {
+  background: var(--chip-bg); border: 1px solid transparent; border-radius: 999px;
+  padding: 4px 12px; cursor: pointer; font-size: 13px; color: var(--text-2);
+}
+.chip[aria-pressed="true"] { background: var(--text); color: var(--surface); }
+input[type=search], select {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 13px;
+}
+input[type=search] { min-width: 180px; flex: 1; max-width: 280px; }
+label.chk { font-size: 13px; color: var(--text-2); display: inline-flex; gap: 6px; align-items: center; margin-left: auto; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+td.title { white-space: normal; min-width: 220px; font-weight: 500; }
+th { font-size: 12px; color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; position: sticky; top: 0; background: var(--surface); }
+th button { all: unset; cursor: pointer; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.st { display: inline-flex; align-items: center; gap: 6px; }
+.count { color: var(--text-3); font-size: 13px; margin: 8px 0 0; }
+#tip {
+  position: fixed; pointer-events: none; z-index: 10; opacity: 0; transition: opacity .08s;
+  background: var(--text); color: var(--surface); padding: 6px 10px; border-radius: 6px; font-size: 12.5px; max-width: 240px;
+}
+.note { color: var(--text-3); font-size: 12px; margin-top: 18px; }
+@media (max-width: 760px) {
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .kpis .hero-card { grid-column: 1 / -1; }
+  .two { grid-template-columns: 1fr; }
+  .brow { grid-template-columns: 96px 1fr 56px; }
+  .hero { font-size: 48px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Reading Dashboard</h1>
+      <div class="sub" id="updated"></div>
+    </div>
+    <button class="btn" id="theme" aria-label="Toggle light and dark theme">Theme</button>
+  </header>
+
+  <section class="grid kpis" aria-label="Headline numbers">
+    <div class="card hero-card">
+      <div class="hero" id="heroDone">–</div>
+      <div class="tile-label" id="heroLabel"></div>
+    </div>
+    <div class="card"><div class="tile-num" id="kDoing">–</div><div class="tile-label"><span class="sw" style="background:var(--doing)"></span>In progress</div></div>
+    <div class="card"><div class="tile-num" id="kTodo">–</div><div class="tile-label"><span class="sw" style="background:var(--todo)"></span>Not started</div></div>
+    <div class="card"><div class="tile-num" id="kRating">–</div><div class="tile-label" id="kRatingLabel">Average rating</div></div>
+  </section>
+
+  <section class="card" style="margin-bottom:14px" aria-label="Status mix">
+    <h2>Where everything stands</h2>
+    <div class="stack" id="stack" role="img" aria-label="Stacked bar of books by status"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section class="grid two">
+    <div class="card"><h2>Completed by category</h2><div id="byCat"></div>
+      <h2 style="margin-top:22px">Completed by genre</h2><div id="byGenre"></div>
+    </div>
+    <div class="card"><h2>Ratings you've given</h2>
+      <div class="cols" id="ratingCols" style="height:210px"></div><div class="collab" id="ratingLab"></div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-bottom:14px">
+    <h2>Reading now</h2>
+    <div class="now" id="now"></div>
+  </section>
+
+  <section class="card">
+    <h2>Library</h2>
+    <div class="controls">
+      <button class="chip" data-status="all" aria-pressed="true">All</button>
+      <button class="chip" data-status="Completed" aria-pressed="false">Completed</button>
+      <button class="chip" data-status="In Progress" aria-pressed="false">In progress</button>
+      <button class="chip" data-status="Not started" aria-pressed="false">Not started</button>
+      <button class="chip" data-status="Returned" aria-pressed="false">Returned</button>
+      <select id="cat" aria-label="Category"><option value="">All categories</option></select>
+      <input type="search" id="q" placeholder="Search title or author" aria-label="Search title or author">
+      <label class="chk"><input type="checkbox" id="feeds"> Include podcasts &amp; news feeds</label>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr id="thead"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="count" id="count"></p>
+  </section>
+
+  <p class="note">Snapshot of the Notion Reading Tracker. Counts exclude podcasts and news feeds unless you tick the box in the library.</p>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  "use strict";
+  var COLS = ["title","author","status","category","genre","rating","length","dateRead","format"];
+  var books = window.READING_RAW.trim().split("\n").map(function (line) {
+    var f = line.split("|"), o = {};
+    COLS.forEach(function (c, i) { o[c] = (f[i] || "").trim(); });
+    o.rating = o.rating ? parseFloat(o.rating) : null;
+    o.feed = o.format === "Podcast / feed";
+    return o;
+  });
+
+  var $ = function (id) { return document.getElementById(id); };
+  var STATUSES = [
+    { key: "Completed",   label: "Completed",   color: "var(--done)" },
+    { key: "In Progress", label: "In progress", color: "var(--doing)" },
+    { key: "Not started", label: "Not started", color: "var(--todo)" },
+    { key: "Returned",    label: "Returned",    color: "var(--returned)", ring: true }
+  ];
+  var statusLabel = {}; STATUSES.forEach(function (s) { statusLabel[s.key] = s; });
+
+  var core = books.filter(function (b) { return !b.feed; });
+  function count(list, fn) { return list.filter(fn).length; }
+  var nDone = count(core, function (b) { return b.status === "Completed"; });
+  var nDoing = count(core, function (b) { return b.status === "In Progress"; });
+  var nTodo = count(core, function (b) { return b.status === "Not started"; });
+  var nRet = count(core, function (b) { return b.status === "Returned"; });
+  var rated = core.filter(function (b) { return b.rating != null; });
+  var avg = rated.length ? rated.reduce(function (s, b) { return s + b.rating; }, 0) / rated.length : null;
+
+  /* ---------- tooltip ---------- */
+  var tip = $("tip");
+  function showTip(el, e) {
+    tip.textContent = el.getAttribute("data-tip");
+    tip.style.opacity = 1;
+    var r = el.getBoundingClientRect();
+    var x = e && e.clientX ? e.clientX : r.left + r.width / 2;
+    var y = r.top;
+    tip.style.left = Math.min(window.innerWidth - tip.offsetWidth - 8, Math.max(8, x - tip.offsetWidth / 2)) + "px";
+    tip.style.top = Math.max(8, y - tip.offsetHeight - 8) + "px";
+  }
+  function hideTip() { tip.style.opacity = 0; }
+  document.addEventListener("mouseover", function (e) { var t = e.target.closest("[data-tip]"); if (t) showTip(t, e); });
+  document.addEventListener("mousemove", function (e) { var t = e.target.closest("[data-tip]"); if (t) showTip(t, e); });
+  document.addEventListener("mouseout", function (e) { if (e.target.closest("[data-tip]")) hideTip(); });
+  document.addEventListener("focusin", function (e) { var t = e.target.closest("[data-tip]"); if (t) showTip(t); });
+  document.addEventListener("focusout", hideTip);
+
+  /* ---------- header + KPIs ---------- */
+  $("updated").textContent = "Snapshot from Notion, " + window.READING_UPDATED + " · " + core.length + " books tracked";
+  $("heroDone").innerHTML = nDone + ' <small>of ' + core.length + ' read</small>';
+  $("heroLabel").textContent = Math.round(100 * nDone / core.length) + "% of the library completed";
+  $("kDoing").textContent = nDoing;
+  $("kTodo").textContent = nTodo;
+  $("kRating").textContent = avg ? avg.toFixed(1) + " / 5" : "–";
+  $("kRatingLabel").textContent = "Average rating (" + rated.length + " rated)";
+
+  /* ---------- status stack ---------- */
+  var stack = $("stack"), legend = $("legend");
+  STATUSES.forEach(function (s) {
+    var n = count(core, function (b) { return b.status === s.key; });
+    if (!n) return;
+    var pct = Math.round(1000 * n / core.length) / 10;
+    var seg = document.createElement("div");
+    seg.className = "seg"; seg.tabIndex = 0;
+    seg.style.flex = n + " 0 0"; seg.style.background = s.ring ? "transparent" : s.color;
+    if (s.ring) seg.style.border = "2px solid " + s.color;
+    seg.setAttribute("data-tip", s.label + ": " + n + " (" + pct + "%)");
+    seg.setAttribute("aria-label", s.label + ": " + n);
+    stack.appendChild(seg);
+    var li = document.createElement("span");
+    li.innerHTML = '<span class="sw' + (s.ring ? ' ring' : '') + '" style="' + (s.ring ? '' : 'background:' + s.color) + '"></span>' + s.label + ' <b>' + n + '</b>';
+    legend.appendChild(li);
+  });
+
+  /* ---------- completion by group ---------- */
+  function breakdown(el, field, order) {
+    var host = $(el);
+    order.forEach(function (g) {
+      var grp = core.filter(function (b) { return b[field] === g; });
+      if (!grp.length) return;
+      var d = count(grp, function (b) { return b.status === "Completed"; });
+      var p = count(grp, function (b) { return b.status === "In Progress"; });
+      var row = document.createElement("div"); row.className = "brow";
+      var track = '<div class="btrack">';
+      if (d) track += '<div class="seg" tabindex="0" style="flex:' + d + ' 0 0;background:var(--done)" data-tip="' + g + ': ' + d + ' completed of ' + grp.length + '"></div>';
+      if (p) track += '<div class="seg" tabindex="0" style="flex:' + p + ' 0 0;background:var(--doing)" data-tip="' + g + ': ' + p + ' in progress"></div>';
+      track += '<div class="rest" style="flex:' + (grp.length - d - p) + ' 0 0" data-tip="' + g + ': ' + (grp.length - d - p) + ' not started"></div></div>';
+      row.innerHTML = '<div>' + g + '</div>' + track + '<div class="n">' + d + ' / ' + grp.length + '</div>';
+      host.appendChild(row);
+    });
+  }
+  breakdown("byCat", "category", ["Professional", "Personal Growth", "Entertainment"]);
+  breakdown("byGenre", "genre", ["Non-Fiction", "Fiction"]);
+
+  /* ---------- ratings ---------- */
+  var rc = $("ratingCols"), rl = $("ratingLab"), maxR = 1;
+  var dist = [1, 2, 3, 4, 5].map(function (r) { return count(rated, function (b) { return Math.round(b.rating) === r; }); });
+  dist.forEach(function (n) { if (n > maxR) maxR = n; });
+  dist.forEach(function (n, i) {
+    var w = document.createElement("div"); w.className = "colwrap";
+    w.innerHTML = '<div class="colval">' + n + '</div><div class="col" tabindex="0" style="height:' + Math.round(100 * n / maxR) + '%;' + (n ? '' : 'opacity:.25') + '" data-tip="' + n + ' book' + (n === 1 ? '' : 's') + ' rated ' + (i + 1) + ' star' + (i ? 's' : '') + '"></div>';
+    rc.appendChild(w);
+    var l = document.createElement("span"); l.textContent = (i + 1) + "★"; rl.appendChild(l);
+  });
+
+  /* ---------- reading now ---------- */
+  var now = $("now");
+  var current = core.filter(function (b) { return b.status === "In Progress"; });
+  if (!current.length) now.textContent = "Nothing in progress.";
+  current.forEach(function (b) {
+    var d = document.createElement("div"); d.className = "book";
+    var m = [b.category, b.length].filter(Boolean).join(" · ");
+    d.innerHTML = '<div class="t"></div><div class="a"></div><div class="m"></div>';
+    d.children[0].textContent = b.title; d.children[1].textContent = b.author; d.children[2].textContent = m;
+    now.appendChild(d);
+  });
+
+  /* ---------- library table ---------- */
+  var state = { status: "all", cat: "", q: "", feeds: false, sort: "title", dir: 1 };
+  var HEAD = [
+    { k: "title", t: "Title" }, { k: "author", t: "Author" }, { k: "status", t: "Status" },
+    { k: "category", t: "Category" }, { k: "genre", t: "Genre" }, { k: "rating", t: "Rating", num: 1 },
+    { k: "length", t: "Length", num: 1 }, { k: "format", t: "Format" }
+  ];
+  var thead = $("thead");
+  HEAD.forEach(function (h) {
+    var th = document.createElement("th"); if (h.num) th.className = "num";
+    th.setAttribute("aria-sort", "none");
+    th.innerHTML = '<button type="button">' + h.t + '</button>';
+    th.firstChild.addEventListener("click", function () {
+      if (state.sort === h.k) state.dir = -state.dir; else { state.sort = h.k; state.dir = 1; }
+      render();
+    });
+    th.dataset.k = h.k; thead.appendChild(th);
+  });
+  var cats = {}; books.forEach(function (b) { if (b.category) cats[b.category] = 1; });
+  Object.keys(cats).sort().forEach(function (c) {
+    var o = document.createElement("option"); o.value = c; o.textContent = c; $("cat").appendChild(o);
+  });
+  function mins(s) {
+    if (!s) return -1; var h = /(\d+)h/.exec(s), m = /(\d+)m/.exec(s);
+    return (h ? +h[1] * 60 : 0) + (m ? +m[1] : 0);
+  }
+  function render() {
+    var q = state.q.toLowerCase();
+    var rows = books.filter(function (b) {
+      if (!state.feeds && b.feed) return false;
+      if (state.status !== "all" && b.status !== state.status) return false;
+      if (state.cat && b.category !== state.cat) return false;
+      if (q && (b.title + " " + b.author).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+    var k = state.sort;
+    rows.sort(function (a, b) {
+      var x = a[k], y = b[k];
+      if (k === "length") { x = mins(x); y = mins(y); }
+      else if (k === "rating") { x = x == null ? -1 : x; y = y == null ? -1 : y; }
+      else { x = (x || "").toLowerCase(); y = (y || "").toLowerCase(); }
+      return (x < y ? -1 : x > y ? 1 : 0) * state.dir;
+    });
+    Array.prototype.forEach.call(thead.children, function (th) {
+      th.setAttribute("aria-sort", th.dataset.k === k ? (state.dir > 0 ? "ascending" : "descending") : "none");
+    });
+    var tb = $("tbody"); tb.innerHTML = "";
+    rows.forEach(function (b) {
+      var s = statusLabel[b.status] || { label: b.status, color: "var(--todo)" };
+      var tr = document.createElement("tr");
+      function td(txt, cls) { var c = document.createElement("td"); if (cls) c.className = cls; c.textContent = txt; return c; }
+      tr.appendChild(td(b.title, "title")); tr.appendChild(td(b.author));
+      var st = document.createElement("td");
+      st.innerHTML = '<span class="st"><span class="sw' + (s.ring ? ' ring' : '') + '" style="' + (s.ring ? '' : 'background:' + s.color) + '"></span>' + s.label + '</span>';
+      tr.appendChild(st);
+      tr.appendChild(td(b.category)); tr.appendChild(td(b.genre));
+      tr.appendChild(td(b.rating != null ? b.rating + " ★" : "", "num"));
+      tr.appendChild(td(b.length, "num")); tr.appendChild(td(b.format));
+      tb.appendChild(tr);
+    });
+    $("count").textContent = rows.length + " shown";
+  }
+  document.querySelectorAll(".chip").forEach(function (c) {
+    c.addEventListener("click", function () {
+      state.status = c.dataset.status;
+      document.querySelectorAll(".chip").forEach(function (x) { x.setAttribute("aria-pressed", x === c ? "true" : "false"); });
+      render();
+    });
+  });
+  $("cat").addEventListener("change", function (e) { state.cat = e.target.value; render(); });
+  $("q").addEventListener("input", function (e) { state.q = e.target.value; render(); });
+  $("feeds").addEventListener("change", function (e) { state.feeds = e.target.checked; render(); });
+  render();
+
+  /* ---------- theme ---------- */
+  var root = document.documentElement;
+  try { var saved = localStorage.getItem("reading-theme"); if (saved) root.setAttribute("data-theme", saved); } catch (e) {}
+  $("theme").addEventListener("click", function () {
+    var dark = root.getAttribute("data-theme") === "dark" ||
+      (!root.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    var next = dark ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("reading-theme", next); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>
